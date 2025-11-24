@@ -1,0 +1,100 @@
+{
+  "name": "gemini-commits",
+  "displayName": "Gemini Commits",
+  "description": "Generate conventional commits using Gemini AI by analyzing your staged changes",
+  "version": "0.1.0",
+  "publisher": "your-publisher-name",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/vscode-gemini-commits"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "git",
+    "commit",
+    "conventional-commits",
+    "gemini",
+    "ai"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gemini-commits.generateCommit",
+        "title": "Generate Commit with Gemini",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "gemini-commits.setApiKey",
+        "title": "Gemini Commits: Set API Key"
+      },
+      {
+        "command": "gemini-commits.resetAutoStage",
+        "title": "Gemini Commits: Reset Auto-Stage Preference"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "gemini-commits.generateCommit",
+          "group": "navigation",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Gemini Commits",
+      "properties": {
+        "geminiCommits.language": {
+          "type": "string",
+          "default": "en",
+          "enum": ["en", "es"],
+          "enumDescriptions": [
+            "English",
+            "Spanish"
+          ],
+          "description": "Language for generated commit messages"
+        },
+        "geminiCommits.model": {
+          "type": "string",
+          "default": "gemini-2.5-pro",
+          "enum": ["gemini-2.5-flash", "gemini-2.5-pro"],
+          "enumDescriptions": [
+            "Fast and efficient model (recommended)",
+            "More capable model with better reasoning"
+          ],
+          "description": "Gemini model to use for generating commit messages"
+        },
+        "geminiCommits.tokenLimit": {
+          "type": "number",
+          "default": 20000,
+          "minimum": 1000,
+          "maximum": 1000000,
+          "description": "Maximum number of tokens allowed per request. You'll be warned if a request exceeds this limit."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0"
+  }
+}
+

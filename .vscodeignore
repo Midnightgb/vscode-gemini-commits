@@ -1,0 +1,12 @@
+.vscode/**
+.gitignore
+**/*.ts
+**/tsconfig.json
+src/**
+node_modules/**/.pnpm/**
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/*.md
+node_modules/**/.github/**
+node_modules/**/*.d.ts
+

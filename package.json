@@ -10,7 +10,7 @@
     "url": "https://github.com/Midnightgb/vscode-gemini-commits"
   },
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "SCM Providers",
@@ -96,7 +96,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.25",
-    "@types/vscode": "^1.106.1",
+    "@types/vscode": "~1.85.0",
     "@vscode/vsce": "^2.32.0",
     "typescript": "^5.9.3"
   },

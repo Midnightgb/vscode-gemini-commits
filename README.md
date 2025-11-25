@@ -133,7 +133,7 @@ chore(deps): update React to v18
 
 ## Requirements
 
-- VS Code version 1.106 or higher
+- VS Code version 1.85.0 or higher
 - Git repository
 - Gemini API key
 

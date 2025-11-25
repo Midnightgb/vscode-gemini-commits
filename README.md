@@ -133,7 +133,7 @@ chore(deps): update React to v18
 
 ## Requirements
 
-- VS Code version 1.85.0 or higher
+- VS Code version 1.106 or higher
 - Git repository
 - Gemini API key
 
@@ -155,7 +155,7 @@ Stage your changes first using `git add` or the VS Code Source Control view.
 
 ### "API quota exceeded"
 
-You've reached your Gemini API usage limits. Check your [Google AI Studio quota](https://makersuite.google.com/).
+You've reached your Gemini API usage limits. Check your [Google AI Studio quota](https://aistudio.google.com/api-keys).
 
 ## Privacy
 

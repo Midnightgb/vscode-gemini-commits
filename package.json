@@ -3,14 +3,14 @@
   "displayName": "Gemini Commits",
   "description": "Generate conventional commits using Gemini AI by analyzing your staged changes",
   "version": "0.1.0",
-  "publisher": "Midnightgb",
+  "publisher": "midnightgb",
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TU-USUARIO/vscode-gemini-commits"
+    "url": "https://github.com/Midnightgb/vscode-gemini-commits"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "SCM Providers",
@@ -55,7 +55,10 @@
         "geminiCommits.language": {
           "type": "string",
           "default": "en",
-          "enum": ["en", "es"],
+          "enum": [
+            "en",
+            "es"
+          ],
           "enumDescriptions": [
             "English",
             "Spanish"
@@ -65,7 +68,10 @@
         "geminiCommits.model": {
           "type": "string",
           "default": "gemini-2.5-pro",
-          "enum": ["gemini-2.5-flash", "gemini-2.5-pro"],
+          "enum": [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro"
+          ],
           "enumDescriptions": [
             "Fast and efficient model (recommended)",
             "More capable model with better reasoning"
@@ -89,13 +95,12 @@
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^2.22.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^20.19.25",
+    "@types/vscode": "^1.106.1",
+    "@vscode/vsce": "^2.32.0",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0"
   }
 }
-

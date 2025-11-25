@@ -3,10 +3,11 @@
   "displayName": "Gemini Commits",
   "description": "Generate conventional commits using Gemini AI by analyzing your staged changes",
   "version": "0.1.0",
-  "publisher": "your-publisher-name",
+  "publisher": "Midnightgb",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/vscode-gemini-commits"
+    "url": "https://github.com/TU-USUARIO/vscode-gemini-commits"
   },
   "engines": {
     "vscode": "^1.85.0"

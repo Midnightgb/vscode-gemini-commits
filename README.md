@@ -16,7 +16,7 @@ Generate conventional commit messages automatically using Google's Gemini AI by 
 ### From VS Code Marketplace
 
 1. Open VS Code
-2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+2. Go to Extensions
 3. Search for "Gemini Commits"
 4. Click Install
 
@@ -87,9 +87,9 @@ Choose the Gemini model to use:
 ```
 
 Available models:
-- `gemini-2.5-flash` (default)
-- `gemini-2.5-pro`
-- Other Gemini models as they become available
+-`gemini-2.5-flash`
+-`gemini-2.5-pro` (default)
+-Other Gemini models as they become available
 
 ## Conventional Commits Format
 

@@ -2,19 +2,43 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Config } from './config';
 
 /**
- * Estimates the number of tokens in a text
- * Rough estimation: 1 token ≈ 4 characters (for English/Spanish)
+ * Gets the exact token count from Gemini API
+ * Uses the official countTokens API for accurate token counting (free, no charge)
+ * @param apiKey - Gemini API key
+ * @param text - Text content to count tokens for
+ * @param model - Model name (default: gemini-1.5-flash)
+ * @returns Exact token count from Gemini's tokenizer
+ */
+export async function countTokens(
+  apiKey: string,
+  text: string,
+  model: string = 'gemini-1.5-flash'
+): Promise<number> {
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const geminiModel = genAI.getGenerativeModel({ model });
+
+    const result = await geminiModel.countTokens(text);
+    return result.totalTokens;
+  } catch (error: any) {
+    // If countTokens fails, fall back to estimation
+    console.warn('Failed to count tokens via API, using estimation:', error?.message);
+    return estimateTokens(text);
+  }
+}
+
+/**
+ * Estimates the number of tokens in a text (fallback method)
+ * Based on Gemini's official guideline: 1 token ≈ 4 characters for plain text
+ * For code/diffs, we use a more conservative 2.5 chars/token to account for:
+ * - Special characters (each is often a separate token)
+ * - Code syntax and punctuation
+ * - Git diff formatting (+, -, @@, etc.)
  */
 export function estimateTokens(text: string): number {
-  // More accurate estimation considering words and punctuation
-  const chars = text.length;
-  const words = text.split(/\s+/).length;
-  
-  // Average between character-based and word-based estimation
-  const charBasedEstimate = chars / 4;
-  const wordBasedEstimate = words * 1.3; // Most words are 1-2 tokens
-  
-  return Math.ceil((charBasedEstimate + wordBasedEstimate) / 2);
+  // Conservative estimation for technical content
+  // Using 2.5 chars per token (vs. 4 chars for plain text)
+  return Math.ceil(text.length / 2.5);
 }
 
 const CONVENTIONAL_COMMITS_RULES = `

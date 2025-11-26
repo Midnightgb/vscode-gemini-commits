@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getApiKey, promptForApiKey, getConfig } from './config';
 import { getStagedDiff, setCommitMessage, resetAutoStagePreference } from './git';
-import { generateCommitMessage, estimateTokens, buildPrompt } from './gemini';
+import { generateCommitMessage, countTokens, buildPrompt } from './gemini';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Gemini Commits extension is now active');
@@ -59,11 +59,13 @@ async function handleGenerateCommit(context: vscode.ExtensionContext) {
     // Check token usage before generating
     const config = getConfig();
     const prompt = buildPrompt(diff, config.language);
-    const estimatedTokens = estimateTokens(prompt);
-    
-    if (estimatedTokens > config.tokenLimit) {
+
+    // Get exact token count from Gemini API (free, accurate)
+    const tokenCount = await countTokens(apiKey, prompt, config.model);
+
+    if (tokenCount > config.tokenLimit) {
       const choice = await vscode.window.showWarningMessage(
-        `This request will use approximately ${estimatedTokens.toLocaleString()} tokens, which exceeds the configured ${config.tokenLimit.toLocaleString()} token threshold for large prompts.\n\nDo you want to continue?`,
+        `This request will use ${tokenCount.toLocaleString()} tokens, which exceeds the configured ${config.tokenLimit.toLocaleString()} token threshold for large prompts.\n\nDo you want to continue?`,
         { modal: true },
         'Continue',
         'Change Threshold',

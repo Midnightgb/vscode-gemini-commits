@@ -5,6 +5,13 @@ All notable changes to the "Gemini Commits" extension will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-11-28
+
+### Fixed
+- Added request blocking to prevent concurrent commit generations
+- Users now see a warning message if they try to generate a commit while another is already in progress
+- Prevents unnecessary token consumption from spam clicking the generate button
+
 ## [0.1.2] - 2025-11-26
 
 ### Hotfix

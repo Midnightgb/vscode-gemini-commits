@@ -3,6 +3,9 @@ import { getApiKey, promptForApiKey, getConfig } from './config';
 import { getStagedDiff, setCommitMessage, resetAutoStagePreference } from './git';
 import { generateCommitMessage, countTokens, buildPrompt } from './gemini';
 
+// Flag to prevent concurrent commit generation requests
+let isGenerating = false;
+
 export function activate(context: vscode.ExtensionContext) {
   console.log('Gemini Commits extension is now active');
 
@@ -31,6 +34,17 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function handleGenerateCommit(context: vscode.ExtensionContext) {
+  // Check if a commit generation is already in progress
+  if (isGenerating) {
+    vscode.window.showWarningMessage(
+      '⏳ A commit message is already being generated. Please wait for the current process to complete.'
+    );
+    return;
+  }
+
+  // Set the flag to indicate generation is in progress
+  isGenerating = true;
+
   try {
     let apiKey = await getApiKey(context);
     
@@ -116,6 +130,9 @@ async function handleGenerateCommit(context: vscode.ExtensionContext) {
     );
   } catch (error: any) {
     vscode.window.showErrorMessage(error.message || 'An unexpected error occurred');
+  } finally {
+    // Always reset the flag when the generation completes or fails
+    isGenerating = false;
   }
 }
 

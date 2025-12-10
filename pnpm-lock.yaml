@@ -16,8 +16,8 @@ importers:
         specifier: ^20.19.25
         version: 20.19.25
       '@types/vscode':
-        specifier: ^1.106.1
-        version: 1.106.1
+        specifier: ~1.85.0
+        version: 1.85.0
       '@vscode/vsce':
         specifier: ^2.32.0
         version: 2.32.0
@@ -78,8 +78,8 @@ packages:
   '@types/node@20.19.25':
     resolution: {integrity: sha512-ZsJzA5thDQMSQO788d7IocwwQbI8B5OPzmqNvpf3NY/+MHDAS759Wo0gd2WQeXYt5AAAQjzcrTVC6SKCuYgoCQ==}
 
-  '@types/vscode@1.106.1':
-    resolution: {integrity: sha512-R/HV8u2h8CAddSbX8cjpdd7B8/GnE4UjgjpuGuHcbp1xV6yh4OeqU4L1pKjlwujCrSFS0MOpwJAIs/NexMB1fQ==}
+  '@types/vscode@1.85.0':
+    resolution: {integrity: sha512-CF/RBon/GXwdfmnjZj0WTUMZN5H6YITOfBCP4iEZlOtVQXuzw6t7Le7+cR+7JzdMrnlm7Mfp49Oj2TuSXIWo3g==}
 
   '@typespec/ts-http-runtime@0.3.2':
     resolution: {integrity: sha512-IlqQ/Gv22xUC1r/WQm4StLkYQmaaTsXAhUVsNE0+xiyf0yRFiH5++q78U3bw6bLKDCTmh0uqKB9eG9+Bt75Dkg==}
@@ -816,7 +816,7 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  '@types/vscode@1.106.1': {}
+  '@types/vscode@1.85.0': {}
 
   '@typespec/ts-http-runtime@0.3.2':
     dependencies:

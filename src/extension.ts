@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { getApiKey, promptForApiKey, getConfig } from './config';
+import { getApiKey, promptForApiKey, getConfig, setModel } from './config';
 import { getStagedDiff, setCommitMessage, resetAutoStagePreference } from './git';
-import { generateCommitMessage, countTokens, buildPrompt } from './gemini';
+import { generateCommitMessage, countTokens, buildPrompt, listAvailableModels } from './gemini';
 
 // Flag to prevent concurrent commit generation requests
 let isGenerating = false;
@@ -30,7 +30,19 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(generateCommitCommand, setApiKeyCommand, resetAutoStageCommand);
+  const selectModelCommand = vscode.commands.registerCommand(
+    'gemini-commits.selectModel',
+    async () => {
+      await handleSelectModel(context);
+    }
+  );
+
+  context.subscriptions.push(
+    generateCommitCommand, 
+    setApiKeyCommand, 
+    resetAutoStageCommand,
+    selectModelCommand
+  );
 }
 
 async function handleGenerateCommit(context: vscode.ExtensionContext) {
@@ -133,6 +145,70 @@ async function handleGenerateCommit(context: vscode.ExtensionContext) {
   } finally {
     // Always reset the flag when the generation completes or fails
     isGenerating = false;
+  }
+}
+
+async function handleSelectModel(context: vscode.ExtensionContext) {
+  try {
+    const apiKey = await getApiKey(context);
+    
+    if (!apiKey) {
+      const choice = await vscode.window.showInformationMessage(
+        'Gemini API key not found. Would you like to set it now?',
+        'Yes',
+        'No'
+      );
+      
+      if (choice === 'Yes') {
+        await promptForApiKey(context);
+      }
+      return;
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Getting available models...',
+        cancellable: false
+      },
+      async () => {
+        try {
+          const models = await listAvailableModels(apiKey);
+          
+          if (models.length === 0) {
+            vscode.window.showErrorMessage('No models available');
+            return;
+          }
+
+          const currentModel = getConfig().model;
+          
+          const items = models.map(model => ({
+            label: model.name,
+            description: model.displayName,
+            detail: model.description,
+            picked: model.name === currentModel
+          }));
+
+          const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a Gemini model',
+            title: 'Available Models'
+          });
+
+          if (selected) {
+            await setModel(selected.label);
+            vscode.window.showInformationMessage(
+              `✓ Model changed to: ${selected.label}`
+            );
+          }
+        } catch (error: any) {
+          vscode.window.showErrorMessage(
+            `Error getting models: ${error.message || error}`
+          );
+        }
+      }
+    );
+  } catch (error: any) {
+    vscode.window.showErrorMessage(error.message || 'Error selecting model');
   }
 }
 

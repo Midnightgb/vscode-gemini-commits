@@ -24,9 +24,14 @@ export function getConfig(): Config {
   const config = vscode.workspace.getConfiguration('geminiCommits');
   return {
     language: config.get<'en' | 'es'>('language', 'en'),
-    model: config.get<string>('model', 'gemini-2.5-pro'),
+    model: config.get<string>('model', 'gemini-flash-latest'),
     tokenLimit: config.get<number>('tokenLimit', 20000)
   };
+}
+
+export async function setModel(modelName: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration('geminiCommits');
+  await config.update('model', modelName, vscode.ConfigurationTarget.Global);
 }
 
 export async function promptForApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {

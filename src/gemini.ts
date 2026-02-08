@@ -12,6 +12,41 @@ export interface GeminiModel {
 }
 
 /**
+ * Interface for parsed file changes
+ */
+export interface FileChange {
+  path: string;
+  additions: number;
+  deletions: number;
+  changes: CodeChange[];
+  isBinary: boolean;
+  isNew: boolean;
+  isDeleted: boolean;
+  isRenamed: boolean;
+  oldPath?: string;
+}
+
+/**
+ * Interface for individual code changes within a file
+ */
+export interface CodeChange {
+  type: 'addition' | 'deletion' | 'context';
+  line: string;
+  lineNumber?: number;
+}
+
+/**
+ * Interface for diff statistics
+ */
+export interface DiffStats {
+  totalFiles: number;
+  totalAdditions: number;
+  totalDeletions: number;
+  totalChanges: number;
+  estimatedTokens: number;
+}
+
+/**
  * Lists all available Gemini models from the API
  * @param apiKey - Gemini API key
  * @returns Array of available models
@@ -189,8 +224,221 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 2.5);
 }
 
+/**
+ * Parses a git diff into structured file changes with code analysis
+ * This enables context-aware commit message generation
+ */
+export function parseDiff(diff: string): FileChange[] {
+  const files: FileChange[] = [];
+  const fileSections = diff.split(/^diff --git /m).filter(Boolean);
+
+  for (const section of fileSections) {
+    const lines = section.split('\n');
+    const fileChange: FileChange = {
+      path: '',
+      additions: 0,
+      deletions: 0,
+      changes: [],
+      isBinary: false,
+      isNew: false,
+      isDeleted: false,
+      isRenamed: false,
+    };
+
+    // Parse file header
+    const firstLine = lines[0];
+    const filePathMatch = firstLine.match(/a\/(.*?) b\/(.*?)$/);
+    if (filePathMatch) {
+      fileChange.path = filePathMatch[2];
+      if (filePathMatch[1] !== filePathMatch[2]) {
+        fileChange.isRenamed = true;
+        fileChange.oldPath = filePathMatch[1];
+      }
+    }
+
+    // Check for file status
+    for (const line of lines) {
+      if (line.startsWith('new file mode')) {
+        fileChange.isNew = true;
+      } else if (line.startsWith('deleted file mode')) {
+        fileChange.isDeleted = true;
+      } else if (line.startsWith('Binary files')) {
+        fileChange.isBinary = true;
+      } else if (line.startsWith('rename from')) {
+        fileChange.isRenamed = true;
+      }
+    }
+
+    // Parse code changes
+    let inHunk = false;
+    let currentLineNumber = 0;
+
+    for (const line of lines) {
+      if (line.startsWith('@@')) {
+        inHunk = true;
+        const lineNumberMatch = line.match(/@@ -\d+,?\d* \+(\d+),?\d* @@/);
+        if (lineNumberMatch) {
+          currentLineNumber = parseInt(lineNumberMatch[1], 10);
+        }
+        continue;
+      }
+
+      if (inHunk && !fileChange.isBinary) {
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          fileChange.additions++;
+          fileChange.changes.push({
+            type: 'addition',
+            line: line.substring(1),
+            lineNumber: currentLineNumber++,
+          });
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          fileChange.deletions++;
+          fileChange.changes.push({
+            type: 'deletion',
+            line: line.substring(1),
+          });
+        } else if (line.startsWith(' ')) {
+          fileChange.changes.push({
+            type: 'context',
+            line: line.substring(1),
+            lineNumber: currentLineNumber++,
+          });
+        }
+      }
+    }
+
+    if (fileChange.path) {
+      files.push(fileChange);
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Calculates statistics from parsed diff
+ */
+export function calculateDiffStats(files: FileChange[]): DiffStats {
+  const stats: DiffStats = {
+    totalFiles: files.length,
+    totalAdditions: 0,
+    totalDeletions: 0,
+    totalChanges: 0,
+    estimatedTokens: 0,
+  };
+
+  for (const file of files) {
+    stats.totalAdditions += file.additions;
+    stats.totalDeletions += file.deletions;
+  }
+
+  stats.totalChanges = stats.totalAdditions + stats.totalDeletions;
+
+  return stats;
+}
+
+/**
+ * Generates a compact summary of file changes for large diffs
+ * This helps keep the prompt within reasonable token limits
+ */
+export function generateCompactDiffSummary(files: FileChange[], maxLinesPerFile: number = 20): string {
+  let summary = '## Diff Summary\n\n';
+  
+  // Add statistics
+  const stats = calculateDiffStats(files);
+  summary += `**Statistics**: ${stats.totalFiles} file${stats.totalFiles !== 1 ? 's' : ''} changed, `;
+  summary += `${stats.totalAdditions} insertion${stats.totalAdditions !== 1 ? 's' : ''}(+), `;
+  summary += `${stats.totalDeletions} deletion${stats.totalDeletions !== 1 ? 's' : ''}(-)\n\n`;
+
+  // Add file-by-file summary
+  for (const file of files) {
+    summary += `### ${file.path}\n`;
+    
+    // File status
+    if (file.isNew) {
+      summary += `**Status**: New file\n`;
+    } else if (file.isDeleted) {
+      summary += `**Status**: Deleted\n`;
+    } else if (file.isRenamed) {
+      summary += `**Status**: Renamed from \`${file.oldPath}\`\n`;
+    }
+    
+    if (file.isBinary) {
+      summary += `**Type**: Binary file\n\n`;
+      continue;
+    }
+
+    summary += `**Changes**: +${file.additions} -${file.deletions}\n\n`;
+
+    // Show meaningful code changes (limited)
+    const meaningfulChanges = file.changes.filter(
+      change => change.type !== 'context' && change.line.trim().length > 0
+    );
+
+    if (meaningfulChanges.length > 0) {
+      summary += '**Key changes**:\n```\n';
+      
+      const linesToShow = meaningfulChanges.slice(0, maxLinesPerFile);
+      for (const change of linesToShow) {
+        const prefix = change.type === 'addition' ? '+' : '-';
+        summary += `${prefix} ${change.line}\n`;
+      }
+      
+      if (meaningfulChanges.length > maxLinesPerFile) {
+        summary += `... and ${meaningfulChanges.length - maxLinesPerFile} more changes\n`;
+      }
+      
+      summary += '```\n\n';
+    }
+  }
+
+  return summary;
+}
+
+/**
+ * Determines if a diff is large and needs compact handling
+ * Threshold: 50+ files OR 500+ total changes OR estimated 15000+ tokens
+ */
+export function isLargeDiff(diff: string, files?: FileChange[]): boolean {
+  const parsedFiles = files || parseDiff(diff);
+  const stats = calculateDiffStats(parsedFiles);
+  const estimatedTokens = estimateTokens(diff);
+
+  return (
+    stats.totalFiles > 50 ||
+    stats.totalChanges > 500 ||
+    estimatedTokens > 15000
+  );
+}
+
+/**
+ * Processes a diff intelligently based on its size
+ * Returns either the full diff or a compact summary
+ */
+export function processDiffIntelligently(diff: string): { content: string; wasCompacted: boolean; stats: DiffStats } {
+  const files = parseDiff(diff);
+  const stats = calculateDiffStats(files);
+  
+  if (isLargeDiff(diff, files)) {
+    console.log('Large diff detected, generating compact summary...');
+    return {
+      content: generateCompactDiffSummary(files, 15),
+      wasCompacted: true,
+      stats,
+    };
+  }
+
+  return {
+    content: diff,
+    wasCompacted: false,
+    stats,
+  };
+}
+
 const CONVENTIONAL_COMMITS_RULES = `
 You are an expert in generating concise, professional conventional commit messages following the Conventional Commits 1.0.0 specification.
+
+You excel at analyzing actual code changes to understand the intent and impact of modifications, not just file names.
 
 ## Commit Message Format
 <type>[optional scope]: <short description>
@@ -222,6 +470,16 @@ You are an expert in generating concise, professional conventional commit messag
 2. Body summary: 1-2 concise sentences max, wrap at 72 chars
 3. Bullets: Direct and specific, no redundant explanations
 4. Keep it SHORT and focused on WHAT changed
+5. ANALYZE the actual code changes, not just filenames
+6. Focus on the FUNCTIONAL impact and PURPOSE of changes
+
+## Context-Aware Analysis Guidelines
+When analyzing changes:
+- Identify the PURPOSE: What problem does this solve? What feature does it add?
+- Understand RELATIONSHIPS: How do changes across files work together?
+- Detect PATTERNS: Multiple similar changes indicate refactoring/renaming
+- Recognize IMPACT: API changes, breaking changes, user-facing features
+- Ignore trivial changes: whitespace, formatting (unless that's the main change)
 
 ## Good Examples
 
@@ -260,18 +518,39 @@ Simplifies button API by merging variants into single component.
 - Updates usage across application
 `;
 
-export function buildPrompt(diff: string, language: 'en' | 'es'): string {
+export function buildPrompt(diff: string, language: 'en' | 'es', isCompacted: boolean = false, stats?: DiffStats): string {
   const languageInstruction = language === 'es'
     ? '\n\nIMPORTANT: Generate the commit message in SPANISH.'
     : '\n\nIMPORTANT: Generate the commit message in ENGLISH.';
 
-  return `${CONVENTIONAL_COMMITS_RULES}${languageInstruction}
+  let contextNote = '';
+  if (isCompacted && stats) {
+    contextNote = `\n\n## Large Commit Context
+This is a LARGE commit with ${stats.totalFiles} files and ${stats.totalChanges} total changes.
+The diff below is a COMPACT SUMMARY showing key changes only.
+Focus on the overall purpose and main functional changes across the codebase.`;
+  }
+
+  const analysisGuidance = isCompacted
+    ? `\n\nFor this large commit:
+- Identify the MAIN PURPOSE or theme of all changes
+- Group related changes together conceptually
+- Focus on HIGH-LEVEL impact rather than individual details
+- Keep the message concise despite the large scope`
+    : `\n\nAnalyze the code changes carefully:
+- Look at WHAT functions/components/features are being added/modified/removed
+- Understand the RELATIONSHIPS between changes across files
+- Identify the PURPOSE and FUNCTIONAL IMPACT
+- Don't just list filenames - describe what the code does`;
+
+  return `${CONVENTIONAL_COMMITS_RULES}${languageInstruction}${contextNote}
 
 Analyze the following git diff and generate a CONCISE conventional commit message:
 
 \`\`\`diff
 ${diff}
 \`\`\`
+${analysisGuidance}
 
 Generate a commit message with:
 1. Subject line: type(scope): short description
@@ -298,7 +577,15 @@ export async function generateCommitMessage(
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: modelToUse });
 
-    const prompt = buildPrompt(diff, config.language);
+    // Smart diff processing: automatically handles large diffs
+    const processed = processDiffIntelligently(diff);
+    
+    if (processed.wasCompacted) {
+      console.log(`📦 Large diff detected (${processed.stats.totalFiles} files, ${processed.stats.totalChanges} changes)`);
+      console.log('   Using compact summary for better performance and accuracy');
+    }
+
+    const prompt = buildPrompt(processed.content, config.language, processed.wasCompacted, processed.stats);
 
     const result = await model.generateContent(prompt);
     const response = result.response;
@@ -338,7 +625,11 @@ export async function generateCommitMessage(
         // Retry with the best available model
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: bestModel });
-        const prompt = buildPrompt(diff, config.language);
+        
+        // Re-process the diff intelligently
+        const processed = processDiffIntelligently(diff);
+        const prompt = buildPrompt(processed.content, config.language, processed.wasCompacted, processed.stats);
+        
         const result = await model.generateContent(prompt);
         const response = result.response;
         const text = response.text().trim();

@@ -6,10 +6,45 @@ Generate conventional commit messages automatically using Google's Gemini AI by 
 
 - 🤖 **AI-Powered**: Uses Gemini AI to analyze your git diff and generate meaningful commit messages
 - 📋 **Conventional Commits**: Follows the [Conventional Commits 1.0.0 specification](https://www.conventionalcommits.org/)
+- 🎯 **Context-Aware**: Analyzes actual code changes, not just file names, understanding the intent and impact of your modifications
+- 📦 **Smart Large Diff Handling**: Automatically handles large commits with compact summaries for better performance and accuracy
 - 🌍 **Multi-language**: Support for English and Spanish commit messages
 - ✏️ **Editable**: Review and edit generated messages before committing
 - 🔒 **Secure**: API keys stored securely using VS Code's SecretStorage
 - 🎯 **SCM Integration**: Quick access button in the Source Control view
+
+### 🎯 Context-Aware Analysis
+
+The extension intelligently analyzes your actual code changes to understand the purpose and impact:
+
+- **Function-level understanding**: Identifies what functions/components are added, modified, or removed
+- **Relationship detection**: Understands how changes across different files work together
+- **Pattern recognition**: Detects refactorings, renamings, and systematic changes
+- **Impact assessment**: Identifies API changes, breaking changes, and user-facing features
+
+**Example**: Instead of "Updated 3 files", it generates: `feat(auth): implement OAuth2 authentication flow`
+
+### 📦 Smart Large Diff Handling
+
+For large commits (50+ files, 500+ changes, or 15000+ tokens), the extension automatically:
+
+- **Auto-detects** large commits and generates compact summaries
+- **Optimizes** by showing only key changes from each file
+- **Maintains accuracy** with high-level analysis of the overall purpose
+- **Reduces costs** by using fewer tokens while maintaining quality
+
+**Example for 78 files changed**:
+```
+feat(migration): migrate codebase to TypeScript
+
+Converts entire JavaScript codebase to TypeScript, adding type
+safety and improving developer experience across 78 files.
+
+- Adds TypeScript configuration and build setup
+- Migrates all source files to .ts/.tsx extensions
+- Implements strict type checking with interfaces
+- Updates dependencies and tooling for TS support
+```
 
 ## Installation
 

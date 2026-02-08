@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { getApiKey, promptForApiKey, getConfig, setModel } from './config';
-import { getStagedDiff, setCommitMessage, resetAutoStagePreference } from './git';
+import { getStagedDiff, setCommitMessage, resetAutoStagePreference, getRepositoryForSourceControl, getGitAPI, Repository } from './git';
 import { generateCommitMessage, countTokens, buildPrompt, listAvailableModels } from './gemini';
 
 // Flag to prevent concurrent commit generation requests
@@ -11,8 +11,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   const generateCommitCommand = vscode.commands.registerCommand(
     'gemini-commits.generateCommit',
-    async () => {
-      await handleGenerateCommit(context);
+    async (sourceControl?: vscode.SourceControl) => {
+      await handleGenerateCommit(context, sourceControl);
     }
   );
 
@@ -45,7 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-async function handleGenerateCommit(context: vscode.ExtensionContext) {
+async function handleGenerateCommit(context: vscode.ExtensionContext, sourceControl?: vscode.SourceControl) {
   // Check if a commit generation is already in progress
   if (isGenerating) {
     vscode.window.showWarningMessage(
@@ -58,33 +58,77 @@ async function handleGenerateCommit(context: vscode.ExtensionContext) {
   isGenerating = true;
 
   try {
+    // Resolve the correct repository for this command invocation
+    let repo: Repository | undefined = getRepositoryForSourceControl(sourceControl);
+
+    // If no repo resolved and multiple repos exist, show a quick pick
+    if (!repo) {
+      const git = getGitAPI();
+      if (!git || git.repositories.length === 0) {
+        vscode.window.showErrorMessage('No Git repository found');
+        return;
+      }
+
+      if (git.repositories.length > 1) {
+        const items = git.repositories.map(r => ({
+          label: vscode.workspace.asRelativePath(r.rootUri, true),
+          description: r.rootUri.fsPath,
+          repo: r,
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+          placeHolder: 'Select a repository to generate a commit message for',
+          title: 'Multiple Repositories',
+        });
+
+        if (!selected) {
+          return;
+        }
+
+        repo = selected.repo;
+      } else {
+        repo = git.repositories[0];
+      }
+    }
+
     let apiKey = await getApiKey(context);
-    
+
     if (!apiKey) {
       const choice = await vscode.window.showInformationMessage(
         'Gemini API key not found. Would you like to set it now?',
         'Yes',
         'No'
       );
-      
+
       if (choice !== 'Yes') {
         return;
       }
-      
+
       apiKey = await promptForApiKey(context);
       if (!apiKey) {
         return;
       }
     }
 
-    const diff = await getStagedDiff(context);
+    const diff = await getStagedDiff(context, repo);
     if (!diff) {
       return;
     }
 
     // Check token usage before generating
     const config = getConfig();
-    const prompt = buildPrompt(diff, config.language);
+    
+    // Smart diff processing: automatically handles large diffs
+    const { parseDiff, processDiffIntelligently } = await import('./gemini');
+    const processed = processDiffIntelligently(diff);
+    
+    if (processed.wasCompacted) {
+      vscode.window.showInformationMessage(
+        `📦 Large commit detected (${processed.stats.totalFiles} files, ${processed.stats.totalChanges} changes). Using smart summary for better results.`
+      );
+    }
+    
+    const prompt = buildPrompt(processed.content, config.language, processed.wasCompacted, processed.stats);
 
     // Get exact token count from Gemini API (free, accurate)
     const tokenCount = await countTokens(apiKey, prompt, config.model);
@@ -123,7 +167,7 @@ async function handleGenerateCommit(context: vscode.ExtensionContext) {
           }
 
           // Set the commit message directly in the Source Control input box
-          const success = setCommitMessage(commitMessage);
+          const success = setCommitMessage(commitMessage, repo);
           
           if (success) {
             vscode.window.showInformationMessage(

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { matchRepository } from './repo-matching';
 
 export interface GitExtension {
   getAPI(version: 1): GitAPI;
@@ -9,6 +10,7 @@ export interface GitAPI {
 }
 
 export interface Repository {
+  rootUri: vscode.Uri;
   state: RepositoryState;
   diff(cached: boolean): Promise<string>;
   commit(message: string): Promise<void>;
@@ -49,6 +51,14 @@ export function getRepository(): Repository | undefined {
   return git.repositories[0];
 }
 
+export function getRepositoryForSourceControl(sourceControl?: vscode.SourceControl): Repository | undefined {
+  const git = getGitAPI();
+  if (!git) {
+    return undefined;
+  }
+  return matchRepository(git.repositories, sourceControl);
+}
+
 function getErrorMessage(error: any): string {
   if (!error) {
     return 'Unknown error';
@@ -69,7 +79,26 @@ function getErrorMessage(error: any): string {
   }
 }
 
-export async function stageAllChanges(): Promise<boolean> {
+export async function stageAllChanges(repo?: Repository): Promise<boolean> {
+  if (repo) {
+    // Use repo.add() directly to target the specific repository
+    try {
+      const workingTreeChanges = repo.state.workingTreeChanges;
+      if (workingTreeChanges.length === 0) {
+        vscode.window.showInformationMessage('No changes to stage');
+        return false;
+      }
+
+      await repo.add([]);
+      console.log('Files staged successfully using repo.add([])');
+      return true;
+    } catch (error: any) {
+      console.error('Error staging files with repo.add:', error);
+      vscode.window.showErrorMessage('Failed to stage changes. Please stage your changes manually using the Source Control panel.');
+      return false;
+    }
+  }
+
   try {
     // Use VSCode's built-in git.stageAll command instead of the API
     // This is more reliable and avoids the URI processing bug
@@ -78,23 +107,22 @@ export async function stageAllChanges(): Promise<boolean> {
     return true;
   } catch (error: any) {
     console.error('Error staging files with git.stageAll:', error);
-    
+
     // Fallback: try using the Git API
-    const repo = getRepository();
-    if (!repo) {
+    const fallbackRepo = getRepository();
+    if (!fallbackRepo) {
       vscode.window.showErrorMessage('No Git repository found');
       return false;
     }
 
     try {
-      const workingTreeChanges = repo.state.workingTreeChanges;
+      const workingTreeChanges = fallbackRepo.state.workingTreeChanges;
       if (workingTreeChanges.length === 0) {
         vscode.window.showInformationMessage('No changes to stage');
         return false;
       }
 
-      // Stage all changes at once using an empty array (stages all)
-      await repo.add([]);
+      await fallbackRepo.add([]);
       console.log('Files staged successfully using repo.add([])');
       return true;
     } catch (fallbackError: any) {
@@ -112,8 +140,10 @@ export async function resetAutoStagePreference(context: vscode.ExtensionContext)
   vscode.window.showInformationMessage('Auto-stage preference has been reset. You will be asked again next time.');
 }
 
-export async function getStagedDiff(context: vscode.ExtensionContext): Promise<string | undefined> {
-  const repo = getRepository();
+export async function getStagedDiff(context: vscode.ExtensionContext, repo?: Repository): Promise<string | undefined> {
+  if (!repo) {
+    repo = getRepository();
+  }
   if (!repo) {
     vscode.window.showErrorMessage('No Git repository found');
     return undefined;
@@ -121,19 +151,19 @@ export async function getStagedDiff(context: vscode.ExtensionContext): Promise<s
 
   const stagedChanges = repo.state.indexChanges;
   const workingTreeChanges = repo.state.workingTreeChanges;
-  
+
   if (stagedChanges.length === 0) {
     // Check if user doesn't want to be asked
     const dontAsk = context.globalState.get<boolean>(DONT_ASK_STAGE_KEY, false);
-    
+
     if (dontAsk) {
       // Auto-stage all changes
       if (workingTreeChanges.length === 0) {
         vscode.window.showWarningMessage('No changes found to stage or commit');
         return undefined;
       }
-      
-      const staged = await stageAllChanges();
+
+      const staged = await stageAllChanges(repo);
       if (!staged) {
         return undefined;
       }
@@ -152,7 +182,7 @@ export async function getStagedDiff(context: vscode.ExtensionContext): Promise<s
         'Yes',
         'Yes, don\'t ask again',
       );
-      
+
       if (!choice) {
         return undefined;
       }
@@ -161,7 +191,7 @@ export async function getStagedDiff(context: vscode.ExtensionContext): Promise<s
         await context.globalState.update(DONT_ASK_STAGE_KEY, true);
       }
 
-      const staged = await stageAllChanges();
+      const staged = await stageAllChanges(repo);
       if (!staged) {
         return undefined;
       }
@@ -178,8 +208,10 @@ export async function getStagedDiff(context: vscode.ExtensionContext): Promise<s
   }
 }
 
-export function setCommitMessage(message: string): boolean {
-  const repo = getRepository();
+export function setCommitMessage(message: string, repo?: Repository): boolean {
+  if (!repo) {
+    repo = getRepository();
+  }
   if (!repo) {
     vscode.window.showErrorMessage('No Git repository found');
     return false;
